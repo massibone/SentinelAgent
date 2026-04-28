@@ -12,7 +12,7 @@ Optional approval layer for sensitive actions
 FastAPI skeleton for future integrations (webhooks, UI, local providers)
 
 Project structure
-secure-document-agent/
+SentinelAgent/
 ├─ agent/
 │  ├─ identity.py        # agente: nome, scopo, tool consentiti, dati accessibili
 │  ├─ policy.py          # regole di accesso e autorizzazioni
