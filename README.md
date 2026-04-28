@@ -63,10 +63,9 @@ Add manual approval steps for sensitive operations
 Integrate local providers (e.g., Ollama) to reduce external dependencies
 Tighten I/O validation with pydantic/JSON Schema
 Add focused tests for allowed/denied tool behavior
+
 Tests
 Run the test suite:
-
-bash
 
 
 uv run pytest
