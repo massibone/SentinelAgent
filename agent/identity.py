@@ -1,13 +1,15 @@
 from dataclasses import dataclass, field
+from typing import Sequence
 
-
-@dataclass
+@dataclass(frozen=True)
 class AgentIdentity:
-    name: str
-    purpose: str
-    allowed_tools: list[str] = field(default_factory=list)
-    accessible_data_domains: list[str] = field(default_factory=list)
-    human_approval_required_for: list[str] = field(default_factory=list)
+"""Profile that describes an agent's identity, allowed tools and approval rules."""
+name: str
+purpose: str
+allowed_tools: Sequence[str] = field(default_factory=list)
+accessible_data_domains: Sequence[str] = field(default_factory=list)
+human_approval_required_for: Sequence[str] = field(default_factory=list)
+
 
 
 DEFAULT_IDENTITY = AgentIdentity(
