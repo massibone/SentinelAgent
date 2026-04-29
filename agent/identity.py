@@ -10,6 +10,12 @@ allowed_tools: Sequence[str] = field(default_factory=list)
 accessible_data_domains: Sequence[str] = field(default_factory=list)
 human_approval_required_for: Sequence[str] = field(default_factory=list)
 
+def can\_use(self, tool: str) -> bool:
+    return tool in self.allowed\_tools
+
+def requires\_approval(self, action: str) -> bool:
+    return action in self.human\_approval\_required\_for
+
 
 
 DEFAULT_IDENTITY = AgentIdentity(
