@@ -9,9 +9,9 @@ class AgentIdentity:
     """
     name: str
     purpose: str
-    allowed_tools: Sequence[str] = field(default_factory=list)
-    accessible_data_domains: Sequence[str] = field(default_factory=list)
-    human_approval_required_for: Sequence[str] = field(default_factory=list)
+    allowed_tools: Sequence[str] = field(default_factory=tuple)
+    accessible_data_domains: Sequence[str] = field(default_factory=tuple)
+    human_approval_required_for: Sequence[str] = field(default_factory=tuple)
 
     def can_use(self, tool: str) -> bool:
         """Verifica se l'agente è autorizzato a utilizzare un determinato tool."""
