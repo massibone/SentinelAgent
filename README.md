@@ -18,6 +18,13 @@ SentinelAgent/
 │  ├─ policy.py          # regole di accesso e autorizzazioni
 │  ├─ audit.py           # logger JSONL per audit (prompt, tool calls, output)
 │  └─ tools/             # tool isolati con validazione input
+├─ tools/   
+│  ├─ __init__.py
+│  ├─ list_documents.py    
+│  ├─ read_document.py    
+│  ├─ extract_metadata.py 
+│  ├─ write_report.py     
+│  └─ request_approval.py 
 ├─ tests/
 ├─ examples/
 ├─ .github/workflows/ci.yml
