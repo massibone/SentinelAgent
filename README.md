@@ -3,7 +3,6 @@ Permission-aware Python agent for secure document and workflow automation. Desig
 Short description
 Permission-aware Python AI agent with explicit identity, policy-driven access, limited toolset and JSONL audit logging; includes a FastAPI skeleton for extension.
 
-
 Agent identity and profile (name, purpose, allowed tools, accessible data)
 Policy engine enforcing allowed/forbidden actions
 Tool registry with input validation and whitelisting
