@@ -15,6 +15,8 @@ class PolicyViolationError(PermissionError):
 
 
 ACTION_FLAGS = {
+    "list_documents": "can_read_docs",      
+    "extract_metadata": "can_read_docs",
     "read_document": "can_read_docs",
     "write_report": "can_write_reports",
     "send_email": "can_send_email",
