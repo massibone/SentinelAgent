@@ -1,77 +1,127 @@
-Permission-aware Python agent for secure document and workflow automation. Designed for portfolio projects on GitHub and professional positioning on LinkedIn/Upwork.
+# SentinelAgent
 
-Short description
-Permission-aware Python AI agent with explicit identity, policy-driven access, limited toolset and JSONL audit logging; includes a FastAPI skeleton for extension.
+**Permission-aware Python AI agent** with explicit identity, policy-driven access control, a limited toolset, and JSONL audit logging. Includes a FastAPI skeleton for future extension.
 
-Agent identity and profile (name, purpose, allowed tools, accessible data)
-Policy engine enforcing allowed/forbidden actions
-Tool registry with input validation and whitelisting
-JSONL audit logging of prompts, tool calls, outputs and outcomes
-Optional approval layer for sensitive actions
-FastAPI skeleton for future integrations (webhooks, UI, local providers)
+Built as a portfolio project to demonstrate secure agentic design patterns: authority boundaries, typed inputs, narrow tool interfaces, and a human-approval layer — without relying on the model alone to enforce constraints.
 
-Project structure
+---
+
+## Features
+
+- **Agent identity** — name, purpose, allowed tools, accessible data domains
+- **Policy engine** — enforces allowed/forbidden actions per flag
+- **Tool registry** — maps canonical names to callables; validates at registration
+- **JSONL audit logging** — records prompts, tool calls, outputs, and outcomes
+- **Approval layer** — blocks sensitive actions until a human explicitly decides
+- **FastAPI skeleton** — ready for webhooks, UI, or local LLM providers
+
+---
+
+## Project structure
+
+```
 SentinelAgent/
 ├─ agent/
-│  ├─ identity.py        # agente: nome, scopo, tool consentiti, dati accessibili
-│  ├─ policy.py          # regole di accesso e autorizzazioni
-│  ├─ audit.py           # logger JSONL per audit (prompt, tool calls, output)
-│  └─ tools/             # tool isolati con validazione input
-├─ tools/   
 │  ├─ __init__.py
-│  ├─ list_documents.py    
-│  ├─ read_document.py    
-│  ├─ extract_metadata.py 
-│  ├─ write_report.py     
-│  └─ request_approval.py 
+│  ├─ identity.py       # agent profile: name, purpose, allowed tools, data domains
+│  ├─ policy.py         # access rules and permission flags
+│  ├─ audit.py          # JSONL logger (timestamp, event_type, payload)
+│  └─ registry.py       # tool registry: register / get / list_tools
+├─ tools/
+│  ├─ __init__.py       # imports and registers all tools
+│  ├─ list_documents.py
+│  ├─ read_document.py
+│  ├─ extract_metadata.py
+│  ├─ write_report.py
+│  └─ request_approval.py
 ├─ tests/
-├─ examples/
+│  ├─ test_identity.py
+│  ├─ test_policy.py
+│  └─ test_tools.py
+├─ examples/            # sample .txt and .md files for demo runs
 ├─ .github/workflows/ci.yml
-├─ api.py                # FastAPI app (skeleton)
-├─ main.py               # entrypoint CLI
+├─ api.py               # FastAPI app (skeleton)
+├─ main.py              # CLI entrypoint
 ├─ pyproject.toml
 └─ README.md
+```
 
-Quick start
+---
 
-Sincronizza dipendenze:
-bash
+## Quick start
 
-
+**Sync dependencies:**
+```bash
 uv sync --all-groups
-Esegui l’agente:
-bash
+```
 
+**List available tools:**
+```bash
+uv run python main.py --list-tools
+```
 
-uv run python main
-Avvia l’API in hot-reload:
-bash
+**Run a tool:**
+```bash
+uv run python main.py --tool list_documents
+uv run python main.py --tool read_document --args '{"filename": "notes.txt"}'
+```
 
+**Start the API (hot reload):**
+```bash
+uv run uvicorn api:app --reload
+```
 
-uv run uvicorn api:app --
-Architecture summary
-Minimum blocks: agent profile, policy engine, tool registry, audit logger, approval layer. These enforce authority boundaries, typed inputs and narrow tool interfaces rather than relying on the model alone.
-
-Three concrete example agents to showcase
-
-Document extractor
-Reads PDFs/folders and produces structured extractions.
-Role separation, tool whitelist and per-action audit logs.
-Email/workflow simulator
-Classifies inbound requests and drafts responses.
-Never sends emails without explicit human approval and permissions.
-AI workflow security checker
-Scans YAML/config/scripts for secret leakage, excess privileges or overly permissive tools and reports risks.
-Recommended enhancements (roadmap)
-
-Add PDF parsing with pypdf
-Add manual approval steps for sensitive operations
-Integrate local providers (e.g., Ollama) to reduce external dependencies
-Tighten I/O validation with pydantic/JSON Schema
-Add focused tests for allowed/denied tool behavior
-
-Tests
-Run the test suite:
-
-
+**Run tests:**
+```bash
 uv run pytest
+```
+
+---
+
+## Architecture
+
+Every agent action passes through three sequential gates before execution:
+
+```
+CLI input
+    │
+    ▼
+[1] Identity check     → is this tool in allowed_tools?
+    │
+    ▼
+[2] Policy check       → does the policy flag permit this action?
+    │
+    ▼
+[3] Approval check     → does this action require human sign-off?
+    │
+    ▼
+Tool dispatch          → fn(**args) → result
+    │
+    ▼
+Audit log              → JSONL record at every gate and outcome
+```
+
+This enforces authority boundaries structurally — a misconfigured or misbehaving model cannot bypass a gate by reasoning around it.
+
+---
+
+## Example agents (roadmap)
+
+**Document extractor**
+Reads folders of PDFs/text files and produces structured extractions. Demonstrates role separation, tool whitelisting, and per-action audit logs.
+
+**Email/workflow simulator**
+Classifies inbound requests and drafts responses. Never sends without explicit human approval.
+
+**AI workflow security checker**
+Scans YAML/config files for secret leakage, excess privileges, or overly permissive tool configs and reports risks.
+
+---
+
+## Recommended enhancements
+
+- Add PDF parsing with `pypdf`
+- Tighten I/O validation with `pydantic` / JSON Schema
+- Integrate local LLM providers (e.g., Ollama) to reduce external dependencies
+- Add focused tests for allowed/denied tool behavior at each gate
+- Persist approval decisions to a queue for async workflows
