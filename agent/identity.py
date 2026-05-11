@@ -29,3 +29,7 @@ DEFAULT_IDENTITY = AgentIdentity(
     accessible_data_domains=["local_documents", "generated_reports"],
     human_approval_required_for=["delete_file", "send_email", "external_upload"],
 )
+    def __post_init__(self):
+    object.__setattr__(self, "allowed_tools", tuple(self.allowed_tools))
+    object.__setattr__(self, "accessible_data_domains", tuple(self.accessible_data_domains))
+    object.__setattr__(self, "human_approval_required_for", tuple(self.human_approval_required_for))
