@@ -1,95 +1,105 @@
+"""
+api.py — FastAPI skeleton for SentinelAgent.
+
+Endpoints:
+    GET  /health          → liveness check
+    GET  /agent/info      → agent name and purpose
+    GET  /tools           → list registered tools
+    POST /tools/run       → execute a tool through identity → policy → approval gates
+"""
+from __future__ import annotations
+
+from typing import Any
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Any, Dict, Optional
-import uvicorn
 
 from agent.identity import DEFAULT_IDENTITY
-from agent.registry import REGISTRY, get_tool
-from agent.policy import PolicyEngine  # assume PolicyEngine(rules: dict) or adapt
-from agent.audit import AuditLogger     # assume AuditLogger.write(event: dict)
-from agent.tools import request_approval
+from agent.policy import AgentPolicy, check_permission, PolicyViolationError
+from agent.audit import AuditLogger
+import agent.registry as registry
+
+# Importing tools triggers registration via tools/__init__.py
+import tools  # noqa: F401
 
 app = FastAPI(title="SentinelAgent API", version="0.1")
 
-# --- Simple in-memory policy + audit for the skeleton ---
-# Replace with your actual policy loader/engine
-_DEFAULT_RULES = {
-    "list_documents": {"allow": True},
-    "read_document": {"allow": True},
-    "extract_metadata": {"allow": True},
-    "write_report": {"allow": True},
-    "request_approval": {"allow": True},
-}
-_policy = PolicyEngine(rules=_DEFAULT_RULES)
-_audit = AuditLogger()  # adapt constructor if different
+_policy = AgentPolicy()
+_audit = AuditLogger()
+
 
 # --- Pydantic models ---
-class ToolCall(BaseModel):
-    tool_name: str
-    params: Dict[str, Any] = {}
-    requester: Optional[str] = None
 
-class ToolListResponse(BaseModel):
-    tools: Dict[str, str]
+class ToolCallRequest(BaseModel):
+    tool_name: str
+    params: dict[str, Any] = {}
+    requester: str = "anonymous"
+
 
 # --- Endpoints ---
+
 @app.get("/health")
-def health():
+def health() -> dict:
     return {"status": "ok"}
 
+
 @app.get("/agent/info")
-def agent_info():
-    return {"name": DEFAULT_IDENTITY.name, "purpose": DEFAULT_IDENTITY.purpose}
+def agent_info() -> dict:
+    return {
+        "name": DEFAULT_IDENTITY.name,
+        "purpose": DEFAULT_IDENTITY.purpose,
+        "allowed_tools": list(DEFAULT_IDENTITY.allowed_tools),
+    }
+
 
 @app.get("/tools")
-def list_tools():
-    return {"tools": list(REGISTRY.keys())}
+def list_tools() -> dict:
+    return {"tools": registry.list_tools()}
+
 
 @app.post("/tools/run")
-def run_tool(call: ToolCall):
+def run_tool(call: ToolCallRequest) -> dict:
     tool_name = call.tool_name
-    params = call.params or {}
-    requester = call.requester or "unknown"
+    params = call.params
+    requester = call.requester
 
-    # audit: record request
-    _audit.write({"event": "tool_call.request", "tool": tool_name, "params": params, "requester": requester})
+    _audit.log("TOOL_REQUEST", {"tool": tool_name, "params": params, "requester": requester})
 
-    # policy: check allowed
-    if not _policy.is_allowed(tool_name):
-        _audit.write({"event": "tool_call.denied", "tool": tool_name, "reason": "policy_denied", "requester": requester})
-        raise HTTPException(status_code=403, detail="Tool not allowed by policy")
+    # Gate 1 — Identity
+    if not DEFAULT_IDENTITY.can_use(tool_name):
+        _audit.log("IDENTITY_DENIED", {"tool": tool_name, "requester": requester})
+        raise HTTPException(status_code=403, detail=f"Tool '{tool_name}' not in agent allowed_tools.")
 
-    # identity: check agent allowed_tools
-    if tool_name not in DEFAULT_IDENTITY.allowed_tools:
-        _audit.write({"event": "tool_call.denied", "tool": tool_name, "reason": "identity_disallowed", "requester": requester})
-        raise HTTPException(status_code=403, detail="Tool not allowed by agent identity")
-
-    # approval: if action requires human approval, create request and return pending
-    if tool_name in DEFAULT_IDENTITY.human_approval_required_for:
-        app_resp = request_approval({"action": tool_name, "actor": requester, "metadata": params}, audit_hook=_audit.write)
-        return {"status": "pending_approval", "approval": app_resp}
-
-    # find tool
-    fn = get_tool(tool_name)
-    if fn is None:
-        _audit.write({"event": "tool_call.failed", "tool": tool_name, "reason": "not_registered", "requester": requester})
-        raise HTTPException(status_code=404, detail="Tool not found")
-
-    # execute tool (pass audit_hook if accepted signature)
+    # Gate 2 — Policy
     try:
-        # many tools accept (params) or (params, audit_hook)
-        try:
-            result = fn(params)
-        except TypeError:
-            # try call with audit_hook
-            result = fn(params, audit_hook=_audit.write)
-    except Exception as e:
-        _audit.write({"event": "tool_call.error", "tool": tool_name, "error": str(e), "requester": requester})
-        raise HTTPException(status_code=500, detail=f"Tool execution error: {e}")
+        check_permission(_policy, tool_name)
+    except PolicyViolationError as exc:
+        _audit.log("POLICY_DENIED", {"tool": tool_name, "reason": str(exc), "requester": requester})
+        raise HTTPException(status_code=403, detail=str(exc))
 
-    _audit.write({"event": "tool_call.completed", "tool": tool_name, "result": getattr(result, "__dict__", result), "requester": requester})
+    # Gate 3 — Approval
+    if DEFAULT_IDENTITY.requires_approval(tool_name):
+        _audit.log("APPROVAL_REQUIRED", {"tool": tool_name, "requester": requester})
+        raise HTTPException(
+            status_code=202,
+            detail=f"Tool '{tool_name}' requires human approval. Submit via request_approval.",
+        )
+
+    # Dispatch
+    try:
+        fn = registry.get(tool_name)
+    except KeyError:
+        _audit.log("TOOL_NOT_FOUND", {"tool": tool_name})
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not registered.")
+
+    try:
+        result = fn(**params)
+    except TypeError as exc:
+        _audit.log("TOOL_CALL_ERROR", {"tool": tool_name, "error": str(exc)})
+        raise HTTPException(status_code=422, detail=f"Invalid params for '{tool_name}': {exc}")
+    except Exception as exc:
+        _audit.log("TOOL_CALL_ERROR", {"tool": tool_name, "error": str(exc)})
+        raise HTTPException(status_code=500, detail=f"Tool execution error: {exc}")
+
+    _audit.log("TOOL_RESULT", {"tool": tool_name, "result": result})
     return {"status": "ok", "result": result}
-
-# Run server with uvicorn when executed directly
-if __name__ == "__main__":
-    uvicorn.run("api:app", host="127.0.0.1", port=8000, reload=True)
