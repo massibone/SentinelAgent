@@ -4,6 +4,7 @@
 
 Built as a portfolio project to demonstrate secure agentic design patterns: authority boundaries, typed inputs, narrow tool interfaces, and a human-approval layer — without relying on the model alone to enforce constraints.
 
+
 ---
 
 ## Features
