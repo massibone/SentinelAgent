@@ -47,3 +47,4 @@ def write_report(params: Dict[str, Any], audit_hook=None) -> Dict[str, Any]:
     if audit_hook:
         audit_hook({"action": "write_report", "result": result})
     return result
+    
