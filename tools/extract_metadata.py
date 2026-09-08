@@ -2,7 +2,6 @@ from typing import Dict, Any
 from pydantic import BaseModel, Field, ValidationError
 import os
 
-
 class ExtractParams(BaseModel):
     path: str = Field(..., description="File path to read (PDF or text)")
     max_pages: int = Field(5, ge=1, le=100, description="Max pages to process")
