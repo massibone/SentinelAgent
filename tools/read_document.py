@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def read_document(filename: str, base_dir: str = "examples") -> str:
     path = (Path(base_dir) / filename).resolve()
     base = Path(base_dir).resolve()
