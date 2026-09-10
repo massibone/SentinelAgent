@@ -5,7 +5,6 @@ import os
 import json
 
 
-
 REPORT_DIR = os.environ.get("SENTINEL_REPORT_DIR", "generated_reports")
 
 class ReportParams(BaseModel):
